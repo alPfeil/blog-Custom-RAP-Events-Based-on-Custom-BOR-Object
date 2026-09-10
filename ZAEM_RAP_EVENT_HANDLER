@@ -1,0 +1,73 @@
+FUNCTION zaem_rap_event_handler
+  IMPORTING
+    VALUE(objtype) LIKE swetypecou-objtype
+    VALUE(objkey) LIKE sweinstcou-objkey
+    VALUE(event) LIKE sweinstcou-event
+    VALUE(rectype) LIKE swetypecou-rectype
+  TABLES
+    event_container LIKE swcont.
+
+
+
+
+  READ TABLE event_container ASSIGNING FIELD-SYMBOL(<ls_event_container>) WHERE element = 'CD_CHANGENR'.
+
+  IF <ls_event_container> IS ASSIGNED.
+
+    SELECT tabname, tabkey FROM cdpos UP TO 1 ROWS INTO @DATA(ls_tab)
+      WHERE changenr = @<ls_event_container>-value
+        AND tabname  = 'DFKKBPTAXNUM'.
+    ENDSELECT.
+
+    IF sy-subrc <> 0.
+      RETURN.
+    ENDIF.
+
+    " DFKKBPTAXNUM key: MANDT(3) + PARTNER(10) + STCOTYPE(3)
+    " TABKEY example: 8000000000161DE2 → client=800, BP=0000000161, TaxType=DE2
+    DATA(lv_business_partner) = ls_tab-tabkey+3(10).
+    DATA(lv_tax_type)         = ls_tab-tabkey+13(3).
+
+    " Read current data from API view
+    SELECT SINGLE businesspartner,
+                  bptaxtype,
+                  bptaxnumber,
+                  bptaxlongnumber,
+                  authorizationgroup
+      FROM a_businesspartnertaxnumber
+      INTO @DATA(ls_taxnum)
+      WHERE businesspartner = @lv_business_partner
+        AND bptaxtype       = @lv_tax_type.
+
+    IF sy-subrc <> 0.
+      " Record deleted — raise Deleted event with key only
+      DATA lt_deleted TYPE zbp_r_bptaxnumber=>tt_deleted.
+      APPEND VALUE #(
+        %key = VALUE #(
+          businesspartner = lv_business_partner
+          bptaxtype       = lv_tax_type
+        )
+      ) TO lt_deleted.
+      zbp_r_bptaxnumber=>raise_deleted( lt_deleted ).
+      RETURN.
+    ENDIF.
+
+    " Record exists — raise Changed event with full payload
+    DATA lt_changed TYPE zbp_r_bptaxnumber=>tt_changed.
+    APPEND VALUE #(
+      %key = VALUE #(
+        businesspartner = ls_taxnum-businesspartner
+        bptaxtype       = ls_taxnum-bptaxtype
+      )
+      %param = VALUE z_bptaxnum_evt_payload(
+        taxtype            = ls_taxnum-bptaxtype
+        bptaxnumber        = ls_taxnum-bptaxnumber
+        bptaxlongnumber    = ls_taxnum-bptaxlongnumber
+        authorizationgroup = ls_taxnum-authorizationgroup
+      )
+    ) TO lt_changed.
+    zbp_r_bptaxnumber=>raise_changed( lt_changed ).
+
+  ENDIF.
+
+ENDFUNCTION.

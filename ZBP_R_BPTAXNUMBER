@@ -1,0 +1,32 @@
+CLASS ZBP_R_BPTAXNUMBER DEFINITION
+  PUBLIC
+  ABSTRACT
+  FINAL
+  FOR BEHAVIOR OF ZR_BPTAXNUMBER.
+
+  TYPES tt_created TYPE TABLE FOR EVENT ZR_BPTAXNUMBER~Created.
+  TYPES tt_changed TYPE TABLE FOR EVENT ZR_BPTAXNUMBER~Changed.
+  TYPES tt_deleted TYPE TABLE FOR EVENT ZR_BPTAXNUMBER~Deleted.
+
+  PUBLIC SECTION.
+    CLASS-METHODS raise_created IMPORTING it_events TYPE tt_created.
+    CLASS-METHODS raise_changed IMPORTING it_events TYPE tt_changed.
+    CLASS-METHODS raise_deleted IMPORTING it_events TYPE tt_deleted.
+
+ENDCLASS.
+
+CLASS ZBP_R_BPTAXNUMBER IMPLEMENTATION.
+
+  METHOD raise_created.
+    lcl_event_handler=>on_created( it_events ).
+  ENDMETHOD.
+
+  METHOD raise_changed.
+    lcl_event_handler=>on_changed( it_events ).
+  ENDMETHOD.
+
+  METHOD raise_deleted.
+    lcl_event_handler=>on_deleted( it_events ).
+  ENDMETHOD.
+
+ENDCLASS.
